@@ -1,0 +1,60 @@
+trigger:
+  branches:
+    include:
+    - main
+stages:
+- stage: Build
+  jobs:
+  - job: Build
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - task: TerraformInstaller@1
+      inputs:
+        terraformVersion: 'latest'
+    - task: TerraformTask@5
+      displayName: Terraform init
+      inputs:
+        provider: 'azurerm'
+        command: 'init'
+        backendAzureRmUseEntraIdForAuthentication: false
+        backendServiceArm: 'Pay-As-You-Go(89fe4a0a-6573-4efa-bec8-af933ae5d7c9)'
+        backendAzureRmResourceGroupName: 'demo-resources'
+        backendAzureRmStorageAccountName: 'kklearning'
+        backendAzureRmContainerName: 'prod-tfstate'
+        backendAzureRmKey: 'prod.terraform.tfstate'
+    - task: TerraformTask@5
+      displayName: Terraform validate
+      inputs:
+        provider: 'azurerm'
+        command: 'validate'
+    - task: TerraformTask@5
+      displayName: Terraform format
+      inputs:
+        provider: 'azurerm'
+        command: 'custom'
+        commandOptions: 'fmt'
+        outputTo: 'console'
+        environmentServiceNameAzureRM: 'Pay-As-You-Go(89fe4a0a-6573-4efa-bec8-af933ae5d7c9)'
+    - task: TerraformTask@5
+      displayName: Terraform plan
+      inputs:
+        provider: 'azurerm'
+        command: 'plan'
+        commandOptions: '-out $(Build.SourcesDirectory)/tfplanfile'
+        environmentServiceNameAzureRM: 'Pay-As-You-Go(89fe4a0a-6573-4efa-bec8-af933ae5d7c9)'
+    - task: ArchiveFiles@2
+      displayName: Archive files
+      inputs:
+        rootFolderOrFile: '$(Build.SourcesDirectory)'
+        includeRootFolder: true
+        archiveType: 'zip'
+        archiveFile: '$(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip'
+        replaceExistingArchive: true
+    - task: PublishBuildArtifacts@1
+      displayName: Publish Artifact
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+        ArtifactName: '$(Build.BuildId)-build'
+        publishLocation: 'Container'
+
